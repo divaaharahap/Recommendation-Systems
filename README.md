@@ -16,7 +16,8 @@ Dengan demikian, proyek ini tidak hanya relevan dalam konteks praktis dunia hibu
 - Banyaknya judul anime membuat pengguna bingung memilih tontonan.
 
 ### Goals
-- Mengembangkan sistem rekomendasi yang dapat memberikan top-N rekomendasi anime yang relevan.
+- Membantu pengguna menemukan anime baru yang relevan dan sesuai preferensi mereka.
+- Mengembangkan sistem rekomendasi yang dapat memberikan top-N rekomendasi anime yang relevan dan bervariasi.
 
 ### Solution Approach
 - Content-Based Filtering <br>
@@ -84,38 +85,18 @@ User cenderung memberi rating tinggi, sehingga sistem harus hati-hati agar tidak
 - Melakukan `describe()` di `rating.csv`
 Dengan insight yang didapat adalah data cenderung positif yang berarti user lebih sering memberi rating tinggi.
 
-## Data Preprocessing
-- Mengubah nama kolom rating di `anime.csv` menjadi `mean_rating`, agar tidak duplikat dengan nama kolom rating di `rating.csv`
-- Menggabungkan dataset `rating.csv` dan `anime.csv` berdasarkan `anime_id`.
-- Mengecek missing values <br>
-![Missing Values](images/image-2.png) <br>
-Masih banyak missing values di kolom name,genre, type, episodes, mean_rating dan members. Nanti akan kita handling dengan imputasi atau penghapusan.
-- Mengecek data yang duplikat baik secara keseluruhan ataupun berdasarkan user_id dan name. Hasilnya untuk data keseluruhan terdapat 1 data yang duplikat dan untuk berdasarkan user_id dan name ada sekitar 9 data yang duplikat.
-
 ## Data Preparation
-### Content-Based Filtering
-- Menangani data yang duplikat dengan cara menghapusnya.
-- Menangani missing values dengan cara menghapus `name` yang kosong, mengisi nilai kolom `genre` dan `type`, menghapus baris yang kolom `episodes` nya unknown, mengisi `mean_rating` dengan nilai mean, mengisi `members` dengan nilai median. <br>
+- Mengganti nama kolom rating di anime.csv menjadi mean_rating untuk menghindari duplikasi nama kolom saat penggabungan.
+- Menangani missing values :
+1. Menghapus baris dengan nama anime kosong.
+2. Mengisi genre, type yang kosong dengan nilai default.
+3. Menghapus baris dengan episode yang tidak diketahui (unknown)
+4. Mengisi nilai mean_rating dengan rata-rata dan members dengan median.
 ![Akhir missing values](images/image-3.png) <br>
-- Mengonversi kolom `episodes` menjadi float.
-- Menggabung kolom `genre` dan `type` menjadi `content` agar sistem rekomendasi cbf dapat mengenali dan menghitung kemiripan antar anime dan karena TF-IDF Vectorizer bekerja berdasarkan teks, jadi semakin kaya kontennya, semakin baik model menangkap karakteristik tiap anime. Dengan `content` yang lengkap, sistem bisa merekomendasikan anime yang mirip secara genre dan format tayangan.
-- Memfilter kolom yang tidak diperlukan. Untuk sistem ini, hanya kolom `name`, `episodes`, dan `content` yang digunakan dengan tujuan untuk memfokuskan sistem rekomendasi pada informasi yang paling relevan untuk analisis konten dan penyajian hasil.
-- Setelah difilter, kita akan menghapus data duplikat lagi berdasarkan kolom `name`.
-
-### Collaborative Filtering
-- Menghapus rating yang dibawah 1, rating dibawah 1 menjelaskan bahwa user tidak melakukan rating untuk anime yang sudah selesai ditonton, dan itu tidak diperlukan di proses ini.
-- Mengacak baris dataset (shuffling) dilakukan agar data train-val terdistribusi acak dan tidak terurut berdasarkan pola tertentu.
-- Melakukan encoding user_id dan anime_id menjadi angka. Encoding ID penting karena model hanya bisa memahami input numerik, bukan string atau ID aslinya.
-- Menyusun kamus pemetaan dibuat agar bisa mengubah kembali hasil prediksi ke label asli.
-- Mengubah tipe data rating ke float, ini penting agar model bisa belajar dengan skala yang seragam dan mempercepat konvergensi.
-- Normalisasi nilai rating ke skala 0–1 ini untuk membuat data dalam format yang dapat diproses oleh jaringan neural.
-- Membagi dataset menjadi data pelatihan dan validasi, membantu evaluasi model dengan data yang tidak pernah dilihat selama training.
-
-## Modelling
+- Menghapus data duplikat berdasarkan keseluruhan dan berdasarkan pasangan user_id dan name.
+- Mengonversi kolom episodes menjadi tipe numerik.
 ### Content-Based Filtering
-Pendekatan CBF dalam proyek ini dilakukan dengan cara mengubah fitur `content` menjadi representasi numerik menggunakan teknik **TF-IDF (Term Frequency-Inverse Document Frequency)**. Fitur `content` terdiri dari informasi gabungan seperti genre, tipe, anime, dan rating, yang mencerminkan karakteristik dari setiap anime.
-
-#### Langkah-langkah modelling
+- Menggabungkan fitur genre dan type menjadi kolom content untuk representasi teks yang akan digunakan pada teknik TF-IDF.
 - Vektorisasi Teks dengan TF-IDF <br>
 ```
 tfidf = TfidfVectorizer()
@@ -138,23 +119,52 @@ tfidf_df = pd.DataFrame(
     index=df_model['name']
 )
 ```
-DataFrame ini akan menampilkan nilai TF-IDF tiap kata untuk setiap anime, memungkinkan analisis fitur yang lebih detail.
+- Melakukan vektorisasi content menggunakan TF-IDF Vectorizer (penjelasan teknis ini masuk ke Data Preparation).
 
+### Collaborative Filtering
+- Menghapus rating yang dibawah 1, rating dibawah 1 menjelaskan bahwa user tidak melakukan rating untuk anime yang sudah selesai ditonton, dan itu tidak diperlukan di proses ini.
+- Mengacak baris dataset (shuffling) dilakukan agar data train-val terdistribusi acak dan tidak terurut berdasarkan pola tertentu.
+- Melakukan encoding user_id dan anime_id menjadi angka. Encoding ID penting karena model hanya bisa memahami input numerik, bukan string atau ID aslinya.
+- Menyusun kamus pemetaan dibuat agar bisa mengubah kembali hasil prediksi ke label asli.
+- Mengubah tipe data rating ke float, ini penting agar model bisa belajar dengan skala yang seragam dan mempercepat konvergensi.
+- Normalisasi nilai rating ke skala 0–1 ini untuk membuat data dalam format yang dapat diproses oleh jaringan neural.
+- Membagi dataset menjadi data pelatihan dan validasi, membantu evaluasi model dengan data yang tidak pernah dilihat selama training.
+
+## Modelling
+### Content-Based Filtering
+Pendekatan Content-Based Filtering dalam proyek ini dilakukan dengan mengubah fitur content menjadi representasi numerik menggunakan teknik TF-IDF (Term Frequency-Inverse Document Frequency). Fitur content merupakan gabungan informasi seperti genre, tipe, dan rating yang mencerminkan karakteristik unik dari setiap anime.
+
+Setelah representasi TF-IDF terbentuk, sistem menghitung kemiripan antar anime menggunakan cosine similarity untuk mengukur seberapa mirip dua anime berdasarkan fitur konten mereka. Model kemudian merekomendasikan anime yang memiliki skor similarity tertinggi terhadap anime yang sudah disukai pengguna.
+
+#### Langkah-langkah modelling
+1. Menyiapkan data content sebagai gabungan fitur genre, tipe, dan rating.
+2. Melakukan transformasi teks ke numerik menggunakan TF-IDF vectorizer.
+3. Menghitung cosine similarity antar anime berdasarkan matriks TF-IDF.
 - Penghitungan kemiripan antar anime.
 ```
 cosine_sim = cosine_similarity(tfidf_matrix)
 ```
-Menggunakan cosine similarity untuk mengukur kemiripan antar anime berdasarkan representasi TF-IDF mereka.
+5. Mengembangkan fungsi rekomendasi untuk menghasilkan daftar Top-N anime yang paling mirip berdasarkan konten.
 
-- Fungsi Rekomendasi.
-Fungsi ini menerima input berupa judul anime dan menghasilkan daftar top-N anime yang paling mirip berdasarkan skor kemiripan cosine.
+Contoh output Top-10 rekomendasi Content-Based Filtering untuk anime “Naruto”:
+![image](https://github.com/user-attachments/assets/dc081449-b373-4e4e-acae-71b9ce53e239)
 
 ### Collaborative Filtering
-Model yang digunakan adalah model Collaborative Filtering berbasis Neural Network menggunakan framework TensorFlow dan Keras. Arsitektur model terdiri dari :
-- Dua buah embedding layer untuk memetakan user_id dan anime_id ke vektor berdimensi 50.
-- Hasil embedding digabungkan menggunakan dot product untuk menghasilkan skor prediksi.
-- Model ebrsifat sederhana namun efektif untuk skenario skala besar seperti dataset anime ini.
+Model Collaborative Filtering dibangun dengan menggunakan neural network yang terdiri dari dua embedding layer untuk memetakan user_id dan anime_id ke dalam vektor berdimensi 50. Vektor embedding ini digabungkan melalui operasi dot product untuk memprediksi rating pengguna terhadap sebuah anime.
+
+Model dilatih menggunakan fungsi loss Mean Squared Error (MSE) dan optimizer Adam. Struktur model ini sederhana namun efektif dalam menangkap pola interaksi pengguna dan preferensi rating yang bersifat personal.
 <br>
+
+#### Langkah-langkah modelling
+1. Melakukan encoding pada user_id dan anime_id agar dapat diproses oleh model.
+2. Membuat embedding layer untuk masing-masing entitas dengan dimensi 50.
+3. Menggabungkan embedding dengan dot product untuk mendapatkan prediksi rating.
+4. Melatih model menggunakan MSE loss dan optimizer Adam selama beberapa epoch.
+5. Memvalidasi performa model menggunakan data validasi.
+6. Membuat fungsi rekomendasi Top-N anime dengan rating prediksi tertinggi untuk setiap user.
+Output Top-5 rekomendasi Collaborative Filtering untuk user dengan ID 100:
+![image](https://github.com/user-attachments/assets/a3728e0a-b750-4cf8-81ac-6bf77f673a31)
+
 
 Parameter yang digunakan :
 | Komponen          | Nilai                           |
@@ -180,9 +190,6 @@ Hasil training divisualisasikan dalam bentuk grafik **Root Mean Squared Error (R
 
 ## Evaluasi
 ### Metode Evaluasi CBF
-- Precision@10, untuk mengevaluasi kualitas 10 rekomendasi teratas terhadap anime yang dianggap relevan.<br>
-![Naruto](images/image-5.png)
-
 - Hasil Evaluasi <br>
 ![precision@10 Naruto](images/image-6.png) <br>
 Precision@10 sebesar 0.6 berarti dari 10 anime yang direkomendasikan untuk pengguna yang menyukai "Naruto", sebanyak 6 di antaranya benar-benar relevan.
@@ -197,10 +204,6 @@ RMSE = sqrt( (1/n) * Σ (y_i - ŷ_i)² )
 ![Hasil Evaluasi](images/image-8.png)
 
 RMSE yang rendah menunjukkan prediksi model sangat mendekati rating sebenarnya. <br>
-
-![Rekomendasi User dengan id=100](images/image-7.png) <br>
-
-- Ini menunjukkan sistem sudah cukup baik dalam mengenali kesamaan preferensi pengguna terhadap konten.
 
 ## Kesimpulan
 Proyek ini berhasil membangun sistem rekomendasi anime menggunakan dua pendekatan utama, yaitu Content-Based Filtering (CBF) dan Collaborative Filtering (CF). Dengan memanfaatkan dataset dari MyAnimeList.net, sistem ini mampu memberikan rekomendasi anime yang relevan berdasarkan preferensi pengguna sebelumnya maupun pola interaksi dari pengguna lain yang serupa.
